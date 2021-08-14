@@ -1,34 +1,37 @@
-#!sh
+#!/bin/sh
 
 set -e
 
-if [[ ! "$EUID" -eq 0 ]] ; then
-    echo "Please run this as root"
-    exit -1
+if [ ! "$(id -u)" -eq 0 ]; then
+	echo "Please run this as root"
+	exit 1
 fi
 
 finish_setup() {
 
-    SCRIPT_ROOT="$(dirname "$0")"
-    source "${SCRIPT_ROOT}/common.sh"
+	SOURCE_ROOT="$(dirname "$0")"
+	# shellcheck source=./common.sh
+	. "$SOURCE_ROOT/common.sh"
 
-    docker network create --drive=overlay traefik-public
-    export NODE_ID=$(docker info -f '{{.Swarm.NodeID}}')
-    docker node update --label-add traefik-public.traefik-public-certificates=true $NODE_ID
-    docker node update --label-add swarmpit.db-data=true $NODE_ID
-    docker node update --label-add swarmpit.influx-data=true $NODE_ID
+	NODE_ID=$(docker info -f '{{.Swarm.NodeID}}')
+	EXPORT NODE_ID
 
-    echo
-    echo "================================================================================"
-    echo "PLEASE INSERT A PASSWORD AND MAKE NOTE OF IT."
-    echo "This is used for traefik administration on ${TRAFIK_DOMAIN}"
-    echo "================================================================================"
-    echo
+	docker network create --drive=overlay traefik-public
+	docker node update --label-add traefik-public.traefik-public-certificates=true "$NODE_ID"
+	docker node update --label-add swarmpit.db-data=true "$NODE_ID"
+	docker node update --label-add swarmpit.influx-data=true "$NODE_ID"
 
-    export TRAEFIK_HASHED_PASSWORD=${HASHED_PASSWORD:-$(openssl passwd -apr1)}
+	echo
+	echo "================================================================================"
+	echo "PLEASE INSERT A PASSWORD AND MAKE NOTE OF IT."
+	echo "This is used for traefik administration on $TRAEFIK_DOMAIN"
+	echo "================================================================================"
+	echo
 
-    docker stack deploy -c traefik.yml traefik
-    docker stack deploy -c swarmpit.yml swarmpit
+	export TRAEFIK_HASHED_PASSWORD=${HASHED_PASSWORD:-$(openssl passwd -apr1)}
+
+	docker stack deploy -c traefik.yml traefik
+	docker stack deploy -c swarmpit.yml swarmpit
 }
 
 finish_setup
